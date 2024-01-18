@@ -10,11 +10,12 @@ load_dotenv()
 app = Flask(__name__)
 slack_token =os.getenv("BOTAUTHUSERTOKEN")
 openweather_api_key =os.getenv("OPENWEATHERMAPAPIKEY")
+slack_signing_secret = os.getenv("SIGNINGSECRET")
 client = WebClient(token=slack_token)
 
 
 def get_weather(city):
-    api_url = f"http://api.openweathermap.org/data/2.5/weather?q={city}&appid={openweather_api_key}"
+    api_url = f"api.ope1nweathermap.org/data/2.5/forecast?lat=1.6955&lon=29.5572&appid=openweather_api_key"
     response = requests.get(api_url)
     data = response.json()
     return data
@@ -38,22 +39,27 @@ def send_weather_message(channel_id, message):
 
 @app.route("/slack/events", methods=["POST"])
 def slack_events():
-    data = json.loads(request.data.decode("utf-8"))
-    if "challenge" in data:
-        return data["challenge"]
+    try:
+        data = json.loads(request.data.decode("utf-8"))
+        if "challenge" in data:
+            return data["challenge"]
 
-    event = data["event"]
-    if "text" in event and event["text"].startswith("!weather"):
-        city = event["text"].split(" ", 1)[1]
+        event = data["event"]
+        if "text" in event and event["text"].startswith("!weather"):
+            city = event["text"].split(" ", 1)[1]
 
-        weather_data = get_weather(city)
+            weather_data = get_weather(city)
 
-        message = format_weather_message(weather_data)
+            message = format_weather_message(weather_data)
 
-        send_weather_message(event["channel"], message)
+            send_weather_message(event["channel"], message)
 
-    return "OK"
+        return "OK"
+    except Exception as e:
+        print(f"Error: {str(e)}")
+        return "Internal Server Error", 500
+
 
 
 if __name__ == "__main__":
-    app.run(port=3000)
+    app.run(port=3000,debug=True)
