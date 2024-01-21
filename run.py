@@ -6,6 +6,7 @@ from slack_sdk import WebClient
 from slack_sdk.errors import SlackApiError
 from slackeventsapi import SlackEventAdapter
 from flask import Flask, request
+from datetime import datetime,timedelta
 
 
 load_dotenv()
@@ -18,6 +19,9 @@ slack_signing_secret = os.getenv("SIGNINGSECRET")
 slack_event_adapter=SlackEventAdapter(slack_signing_secret,'/slack/events',app)
 client = WebClient(token=slack_token)
 BOT_ID=client.api_call("auth.test")['user_id']
+SCHEDULED_MESSAGE=[
+    {'text':"ss",'post_at':(datetime.now(),timedelta(seconds=10)).timestamp(),'channel':"C06EMNHAKNW"}
+]
 
 @slack_event_adapter.on('app_mention')
 def message(payload):
@@ -45,30 +49,35 @@ def format_weather_message(weather_data):
     return message
 
 
+def send_weather_message(messages):
+    ids=[]
+    for msg in messages:
+        response=client.chat_scheduleMessage(channel=msg['channel'],text=msg['channel'],post_at=msg['post_At'])
+        id_=response.get('id')
+        ids.append(id_)
 
 
+@app.route("/slack/events", methods=["POST"])
+def slack_events():
+    try:
+        data = json.loads(request.data.decode("utf-8"))
+        if "challenge" in data:
+            return data["challenge"]
 
-# @app.route("/slack/events", methods=["POST"])
-# def slack_events():
-#     try:
-#         data = json.loads(request.data.decode("utf-8"))
-#         if "challenge" in data:
-#             return data["challenge"]
-#
-#         event = data["event"]
-#         if "text" in event and event["text"].startswith("!weather"):
-#             city = event["text"].split(" ", 1)[1]
-#
-#             weather_data = get_weather(city)
-#
-#             message = format_weather_message(weather_data)
-#
-#             send_weather_message(event["channel"], message)
-#
-#         return "OK"
-#     except Exception as e:
-#         print(f"Error: {str(e)}")
-#         return "Internal Server Error", 500
+        event = data["event"]
+        if "text" in event and event["text"].startswith("!weather"):
+            city = event["text"].split(" ", 1)[1]
+
+            weather_data = get_weather(city)
+
+            message = format_weather_message(weather_data)
+
+            send_weather_message(event["channel"], message)
+
+        return "OK"
+    except Exception as e:
+        print(f"Error: {str(e)}")
+        return "Internal Server Error", 500
 
 
 
